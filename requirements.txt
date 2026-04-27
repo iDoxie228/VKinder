@@ -1,3 +1,4 @@
 python-dotenv==1.2.2
 sqlalchemy==2.0.49
 psycopg2-binary==2.9.11
+vk_api==11.9.9
