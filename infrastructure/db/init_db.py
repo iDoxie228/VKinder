@@ -1,4 +1,4 @@
-from session import Base, engine
+from infrastructure.db.session import Base, engine
 from infrastructure.db import models
 
 def init_database():

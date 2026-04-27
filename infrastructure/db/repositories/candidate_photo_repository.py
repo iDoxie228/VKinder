@@ -55,12 +55,12 @@ class CandidatePhotoRepository:
         added_photos = []
 
         for photo in photos_data:
-            photo = self.add_photo(
+            added_photo = self.add_photo(
                 candidate_id=candidate_id,
-                vk_photo_id=photos_data["vk_photo_id"],
-                photo_url=photos_data["photo_url"],
-                likes_amount=photos_data.get("likes_amount", 0)
+                vk_photo_id=photo["vk_photo_id"],
+                photo_url=photo.get("photo_url"),
+                likes_amount=photo.get("likes_amount", 0)
             )
-        added_photos.append(photo)
+            added_photos.append(added_photo)
 
         return added_photos

@@ -49,7 +49,7 @@ def add_to_blacklist(
     blacklist_repository.add_to_blacklist(app_user_id, candidate_id)
     return AddToBlacklistResult(
             success=True,
-            message=f"Кандидат {user_repository.get_by_id(app_user_id).first_name} добавлен в ЧС"
+            message=f"Кандидат {candidate.first_name} добавлен в ЧС"
         )
 
 

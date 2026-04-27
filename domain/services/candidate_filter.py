@@ -58,11 +58,17 @@ def filter_by_age_range(candidates: list[Candidate], age_min: int | None, age_ma
     if age_max is None and age_min is None:
         return candidates
 
-    if age_max is None:
-        return[candidate for candidate in candidates if candidate.age <= age_max]
-    
     if age_min is None:
-        return[candidate for candidate in candidates if candidate.age >= age_min]
+        return [
+            candidate for candidate in candidates
+            if candidate.age is not None and candidate.age <= age_max
+        ]
+
+    if age_max is None:
+        return [
+            candidate for candidate in candidates
+            if candidate.age is not None and candidate.age >= age_min
+        ]
     
     return[
         candidate
@@ -90,7 +96,7 @@ def all_filters(
     res = filter_by_sex(res, sex)
     res = filter_by_city(res, city_id)
     res = filter_by_age(res, age)
-    res = filter_by_age_range(res, age_max, age_min)
+    res = filter_by_age_range(res, age_min, age_max)
 
     return res
 
