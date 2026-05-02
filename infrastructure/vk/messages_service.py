@@ -12,7 +12,7 @@ class MessagesService:
             **params,
         }
 
-        self.vk.method("messages.send", payload)
+        self.vk.messages.send(**payload)
 
     def send_text(self, user_id: int, message: str) -> None:
         self._send(

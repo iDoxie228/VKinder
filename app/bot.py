@@ -1,11 +1,6 @@
-from vk_api.longpoll import VkLongPoll, VkEventType
-from random import randrange
-import vk_api
-import json
+from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
-from infrastructure.config.settings import VK_GROUP_TOKEN, VK_USER_TOKEN
-from app.api.VK_interection import InterectionVKapi
-
+from infrastructure.config.settings import VK_GROUP_TOKEN, VK_USER_TOKEN, VK_GROUP_ID
 from infrastructure.db.session import SessionLocal
 from infrastructure.db.repositories.user_repository import UserRepository
 from infrastructure.db.repositories.candidate_repository import CandidateRepository
@@ -13,304 +8,181 @@ from infrastructure.db.repositories.favorites_repository import FavoriteReposito
 from infrastructure.db.repositories.blacklist_repository import BlacklistRepository
 from infrastructure.db.repositories.candidate_photo_repository import CandidatePhotoRepository
 from infrastructure.db.repositories.shown_candidate_repository import ShownCandidateRepository
-from dataclasses import dataclass
 
-from app.use_cases.add_to_favorites import add_to_favorites
-from app.use_cases.list_favorites import get_list_favorites
-from app.use_cases.add_to_blacklist import add_to_blacklist
+from infrastructure.vk.vk_api_client import VKApiClient
+from infrastructure.vk.search_service import VkSearchService
+from infrastructure.vk.photos_service import VKPhotosService
+from infrastructure.vk.user_service import VKUsersService
+from infrastructure.vk.messages_service import MessagesService
 
-db = SessionLocal()
+from app.keyboards.buttons import (
+    START_SEARCH,
+    LIST_FAVORITES,
+    HELP,
+    MAIN_MENU,
+    CANCEL,
+    NEXT_CANDIDATE,
+    ADD_TO_FAVORITES,
+    ADD_TO_BLACKLIST,
+    FINISH_SEARCH,
+)
 
-user_repo = UserRepository(db)
-candidate_repo = CandidateRepository(db)
-favorites_repo = FavoriteRepository(db)
-blacklist_repo = BlacklistRepository(db)
-photo_repo = CandidatePhotoRepository(db)
-shown_repo = ShownCandidateRepository(db)
+from app.state.dialog_state import DialogState, get_session
 
-vk = vk_api.VkApi(token=VK_GROUP_TOKEN)
-vk_interection = InterectionVKapi(VK_USER_TOKEN)
-longpoll = VkLongPoll(vk)
-users_sessions = {}
+from app.handlers.start_handler import handle_start
+from app.handlers.search_handler import handle_search_step
+from app.handlers.candidate_handler import (
+    handle_next_candidate,
+    handle_add_to_favorites,
+    handle_add_to_blacklist,
+    handle_finish_search,
+)
+from app.handlers.favorites_list_handler import handle_list_favorites
+from app.handlers.help_handler import handle_help, handle_main_menu, handle_cancel
 
-def write_message(user_id, message, keyboard = None):
-    
-    params = {
-        "user_id": user_id,
-        "message": message,
-        "random_id": randrange(10**7)
-        }
-    
-    if keyboard is not None:
-        params["keyboard"] = keyboard
+def run_bot() -> None:
+    db = SessionLocal()
 
-    vk.method("messages.send", params)
+    user_repo = UserRepository(db)
+    candidate_repo = CandidateRepository(db)
+    favorites_repo = FavoriteRepository(db)
+    blacklist_repo = BlacklistRepository(db)
+    photo_repo = CandidatePhotoRepository(db)
+    shown_repo = ShownCandidateRepository(db)
 
-def get_keyboard():
-    keyboard = {
-        "one_time": False,
-        "buttons":[
-            [
-                {
-                    "action":{
-                        "type":"text", 
-                        "label":"❤️В избранное"}
-                }
-                
-            ],
-            [
-                {
-                    "action":{
-                        "type":"text",
-                        "label":"➡️Далее➡️"}
-                    
-                }
-            ],
-            [
-                {
-                    "action":{
-                        "type":"text",
-                        "label":"🙅‍♂️Не нравится"}
-                }
+    group_client = VKApiClient(VK_GROUP_TOKEN)
+    user_client = VKApiClient(VK_USER_TOKEN)
 
-            ],
-            [
-                {
-                    "action":{
-                        "type":"text", 
-                        "label":"📌Список избранных"}
-                }
-                
-            ],
-            [
-                {
-                    "action":{
-                        "type":"text",
-                        "label":"🚫Не хочу больше искать"}
-                    
-                }
-            ]
-        ]
-    }
-    keyboard_json = json.dumps(keyboard, ensure_ascii=False) # преобразовали в json тк метод в котором будет использоваться параметр keyboard ожидает СТРОКУ а не СЛОВАРЬ
-    return keyboard_json
+    group_vk = group_client.get_api()
+    user_vk = user_client.get_api()
 
-for event in longpoll.listen():
-    if event.type == VkEventType.MESSAGE_NEW:
+    messages_service = MessagesService(group_vk)
+    search_service = VkSearchService(user_vk)
+    photos_service = VKPhotosService(user_vk)
+    users_service = VKUsersService(user_vk)
 
-        if event.to_me:
-            app_user, _ = user_repo.get_or_create(
-                vk_user_id=event.user_id,
-                defaults={
-                    "profile_url": f"https://vk.com/id{event.user_id}",
-                },
+    longpoll = VkBotLongPoll(group_client.vk_session, VK_GROUP_ID)
+
+    for event in longpoll.listen():
+        if event.type != VkBotEventType.MESSAGE_NEW:
+            continue
+
+        if not event.object.message.get("text"):
+            continue
+
+        vk_user_id = event.object.message["from_id"]
+        text = event.object.message["text"].strip()
+        request = text.lower()
+
+        session = get_session(vk_user_id)
+
+        if request in ("начать", "/start", START_SEARCH.lower()):
+            handle_start(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
             )
+            continue
 
-            request = event.text.lower()
+        if request == HELP.lower():
+            handle_help(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+            )
+            continue
 
-            if request == "привет" or request == 'начать':
-                welcome_text = ('Привет, давай приступим к поиску. \n\n'
-                'Укажите пол, который вас интересует,\
-                      где 1 - это девушки👩, 2 - мужчины👨\n'
-                      'Укажите город, где 1 - Москва, 2 - Санкт-Петербург\n'
-                      'И укажите интервал возраста в котором ищите человека\n'
-                      'Пример 1, 1, 18, 28')
-                write_message(event.user_id, welcome_text, get_keyboard())
+        if request == MAIN_MENU.lower():
+            handle_main_menu(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+            )
+            continue
 
-            elif request.count(',') == 3:
-                request_data = request.replace(' ', '').split(',')
-                users = vk_interection.people_search(
-                    request_data[0], request_data[1],
-                    request_data[2], request_data[3])
-                if not users:
-                    write_message(event.user_id, "Никого не найдено. Попробуй другие параметры.")
-                else:
-                    saved_candidate_ids = []
+        if request == CANCEL.lower():
+            handle_cancel(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+            )
+            continue
 
-                    for vk_user in users:
-                        candidate, _ = candidate_repo.get_or_create(
-                            vk_candidate_id=vk_user["id"],
-                            defaults={
-                                "first_name": vk_user.get("first_name"),
-                                "last_name": vk_user.get("last_name"),
-                                "sex": vk_user.get("sex"),
-                                "city_id": vk_user.get("city", {}).get("id") if vk_user.get("city") else None,
-                                "city_name": vk_user.get("city", {}).get("title") if vk_user.get("city") else None,
-                                "profile_url": f"https://vk.com/id{vk_user['id']}",
-                                "is_closed": vk_user.get("is_closed", False),
-                            },
-                        )
-                        saved_candidate_ids.append(candidate.id)
+        if request == LIST_FAVORITES.lower():
+            handle_list_favorites(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+                user_repository=user_repo,
+                favorites_repository=favorites_repo,
+            )
+            continue
 
-                    users_sessions[event.user_id] = {
-                        "app_user_id": app_user.id,
-                        "candidate_ids": saved_candidate_ids,
-                        "index": 0,
-                    } # тут у нас сессии пользователей и у каждого пользователя свой словарь людей которые подошли
-                    
-                    candidate_id = users_sessions[event.user_id]["candidate_ids"][0]
-                    candidate = candidate_repo.get_by_id(candidate_id)
+        if request == NEXT_CANDIDATE.lower():
+            handle_next_candidate(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+                user_repository=user_repo,
+                candidate_repository=candidate_repo,
+                shown_candidate_repository=shown_repo,
+                candidate_photo_repository=photo_repo,
+                vk_photos_service=photos_service,
+            )
+            continue
 
-                    text = (
-                        f"👤 {candidate.first_name or ''} {candidate.last_name or ''}\n"
-                        f"🔗 {candidate.profile_url}"
-                    )
-                    write_message(event.user_id, text, get_keyboard())
+        if request == ADD_TO_FAVORITES.lower():
+            handle_add_to_favorites(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+                user_repository=user_repo,
+                candidate_repository=candidate_repo,
+                favorites_repository=favorites_repo,
+                blacklist_repository=blacklist_repo,
+            )
+            continue
 
-                    photos = vk_interection.get_photos(candidate.vk_candidate_id)
+        if request == ADD_TO_BLACKLIST.lower():
+            handle_add_to_blacklist(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+                user_repository=user_repo,
+                candidate_repository=candidate_repo,
+                favorites_repository=favorites_repo,
+                blacklist_repository=blacklist_repo,
+                shown_candidate_repository=shown_repo,
+                candidate_photo_repository=photo_repo,
+                vk_photos_service=photos_service,
+            )
+            continue
 
-                    photo_repo.add_many(
-                        candidate_id=candidate.id,
-                        photos_data=photos,
-                    )
+        if request == FINISH_SEARCH.lower():
+            handle_finish_search(
+                vk_user_id=vk_user_id,
+                messages_service=messages_service,
+            )
+            continue
 
-                    for photo in photos:
-                        vk.method("messages.send", {
-                            "user_id": event.user_id,
-                            "attachment": photo["attachment"],
-                            "random_id": randrange(10**7),
-                        })
+        if session.state in (
+            DialogState.WAITING_SEX,
+            DialogState.WAITING_AGE_FROM,
+            DialogState.WAITING_AGE_TO,
+            DialogState.WAITING_CITY,
+        ):
+            handle_search_step(
+                vk_user_id=vk_user_id,
+                text=text,
+                messages_service=messages_service,
+                user_repository=user_repo,
+                candidate_repository=candidate_repo,
+                blacklist_repository=blacklist_repo,
+                shown_candidate_repository=shown_repo,
+                candidate_photo_repository=photo_repo,
+                vk_search_service=search_service,
+                vk_users_service=users_service,
+                vk_photos_service=photos_service,
+            )
+            continue
 
-            elif request == "➡️далее➡️":
-                session = users_sessions.get(event.user_id)
-
-                if not session:
-                    write_message(event.user_id, "Сначала начни поиск!")
-                    continue
-
-                session["index"] += 1
-
-                candidate_ids = session["candidate_ids"]
-
-                if session["index"] >= len(candidate_ids):
-                    write_message(event.user_id, "🏁 Больше нет кандидатов!")
-                    session["index"] = len(candidate_ids) - 1
-                    continue
-
-                candidate_id = candidate_ids[session["index"]]
-                candidate = candidate_repo.get_by_id(candidate_id)
-
-                text = (
-                    f"👤 {candidate.first_name or ''} {candidate.last_name or ''}\n"
-                    f"🔗 {candidate.profile_url}"
-                )
-
-                write_message(event.user_id, text, get_keyboard())
-
-                photos = vk_interection.get_photos(candidate.vk_candidate_id)
-
-                photo_repo.add_many(
-                    candidate_id=candidate.id,
-                    photos_data=photos,
-                )
-
-                for photo in photos:
-                    vk.method("messages.send", {
-                        "user_id": event.user_id,
-                        "attachment": photo["attachment"],
-                        "random_id": randrange(10**7),
-                    })
-
-            elif request == "🙅‍♂️не нравится":
-                session = users_sessions.get(event.user_id)
-
-                if not session:
-                    write_message(event.user_id, "Сначала начни поиск!")
-                    continue
-
-                candidate_ids = session["candidate_ids"]
-                index = session["index"]
-
-                if index >= len(candidate_ids):
-                    write_message(event.user_id, "🏁 Больше нет кандидатов!")
-                    continue
-
-                candidate_id = candidate_ids[index]
-
-                result = add_to_blacklist(
-                    app_user_id=session["app_user_id"],
-                    candidate_id=candidate_id,
-                    user_repository=user_repo,
-                    candidate_repository=candidate_repo,
-                    favorites_repository=favorites_repo,
-                    blacklist_repository=blacklist_repo,
-                )
-
-                write_message(event.user_id, result.message)
-
-                session["index"] += 1
-
-                if session["index"] >= len(candidate_ids):
-                    write_message(event.user_id, "🏁 Больше нет кандидатов!")
-                    session["index"] = len(candidate_ids) - 1
-                    continue
-
-                next_candidate_id = candidate_ids[session["index"]]
-                candidate = candidate_repo.get_by_id(next_candidate_id)
-
-                text = (
-                    f"👤 {candidate.first_name or ''} {candidate.last_name or ''}\n"
-                    f"🔗 {candidate.profile_url}"
-                )
-
-                write_message(event.user_id, text, get_keyboard())
-
-                photos = vk_interection.get_photos(candidate.vk_candidate_id)
-
-                photo_repo.add_many(
-                    candidate_id=candidate.id,
-                    photos_data=photos,
-                )
-
-                for photo in photos:
-                    vk.method("messages.send", {
-                        "user_id": event.user_id,
-                        "attachment": photo["attachment"],
-                        "random_id": randrange(10**7),
-                    })
-
-            elif request == "❤️в избранное":
-                session = users_sessions.get(event.user_id)
-                if not session:
-                    write_message(event.user_id, "Сначала начни поиск!")
-                else:
-                    session = users_sessions[event.user_id]
-                    candidate_id = session["candidate_ids"][session["index"]]
-
-                    result = add_to_favorites(
-                        app_user_id=session["app_user_id"],
-                        candidate_id=candidate_id,
-                        user_repository=user_repo,
-                        candidate_repository=candidate_repo,
-                        favorites_repository=favorites_repo,
-                        blacklist_repository=blacklist_repo
-                    )
-                    write_message(event.user_id, result.message)
-                    
-            elif request == "📌список избранных":
-                result = get_list_favorites(
-                    app_user_id=app_user.id,
-                    user_repository=user_repo,
-                    favorites_repository=favorites_repo
-                )
-                
-                if not result.success:
-                    write_message(event.user_id, result.message)
-                elif not result.favorites:
-                    write_message(event.user_id, "Список избранных пуст.")
-                else:
-                    text = "*Ваши избранные:*\n\n"
-                    for i, candidate in enumerate(result.favorites, 1):
-                        name = getattr(candidate, 'first_name', 'Неизвестно')
-                        last_name = getattr(candidate, 'last_name', '')
-                        vk_id = candidate.vk_candidate_id
-                        text += f"{i}. {candidate.first_name} {candidate.last_name} — https://vk.com/id{vk_id}\n"
-                    write_message(event.user_id, text)
-                
-
-            else:
-                write_message(event.user_id, "Не поняла вашего ответа...")
+        messages_service.send_text(
+            user_id=vk_user_id,
+            message=f"Не понял, что Вы написали. Нажмите {START_SEARCH} или {HELP}",
+        )
 
 
-
-
+if __name__ == "__main__":
+    run_bot()
