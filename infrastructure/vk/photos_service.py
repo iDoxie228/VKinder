@@ -4,11 +4,11 @@ class VKPhotosService:
 
     def get_top_photos(
         self,
-        candidate_id: int,
+        vk_candidate_id: int,
         count: int = 3,
     ) -> list[dict]:
         response = self.vk.photos.get(
-            owner_id=candidate_id,
+            owner_id=vk_candidate_id,
             album_id="profile",
             extended=1,
             photo_sizes=1,
