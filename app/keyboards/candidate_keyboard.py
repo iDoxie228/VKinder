@@ -1,5 +1,11 @@
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
-from app.keyboards.buttons import ADD_TO_FAVORITES, NEXT_CANDIDATE, ADD_TO_BLACKLIST, LIST_FAVORITES, FINISH_SEARCH, CANCEL, MAIN_MENU, HELP
+from app.keyboards.buttons import (
+    ADD_TO_FAVORITES, 
+    NEXT_CANDIDATE, 
+    ADD_TO_BLACKLIST, 
+    LIST_FAVORITES, 
+    FINISH_SEARCH
+)
 
 def get_candidate_keyboard() -> str:
     keyboard = VkKeyboard(one_time=False)

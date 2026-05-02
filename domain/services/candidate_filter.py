@@ -97,7 +97,6 @@ def all_filters(
     res = filter_by_city(res, city_id)
     res = filter_by_age(res, age)
     res = filter_by_age_range(res, age_min, age_max)
-
     return res
 
 
