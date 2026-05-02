@@ -8,14 +8,14 @@ class VkSearchService:
         
     def search_candidates(
             self,
-            city: int,
+            city_id: int,
             sex: int,
             age_from: int | None,
             age_to: int | None
         ) -> list[dict]:
         response = self.vk.users.search(
             sex=sex, 
-            city=city,
+            city=city_id,
             age_from=age_from,
             age_to=age_to,
             has_photo=1,
@@ -27,7 +27,7 @@ class VkSearchService:
         return [
             self._normilize_candidate(item)
             for item in items
-            if item.get("is_closed", False) 
+            if not item.get("is_closed", False) 
         ]
     
     def _normilize_candidate(self, item: dict) -> dict:

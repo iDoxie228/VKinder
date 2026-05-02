@@ -11,6 +11,7 @@ from infrastructure.vk.user_service import VKUsersService
 class StartSearchResult:
     success: bool
     message: str
+    app_user_id: int | None
     candidate_ids: list[int]
 
 def start_search(

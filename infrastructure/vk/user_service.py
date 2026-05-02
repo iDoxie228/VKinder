@@ -11,7 +11,10 @@ class VKUsersService:
             fields="id,city,sex,bdate"
         )
 
-        return self._normilize_user(response)
+        if not response:
+            return {}
+
+        return self._normilize_user(response[0])
     
     def _normilize_user(self, user_info: dict) -> dict:
         city = user_info.get("city", {})
@@ -20,7 +23,7 @@ class VKUsersService:
         age = calculate_age(birth_date)
 
         return {
-            "vk_candidate_id": user_info["id"],
+            "vk_user_id": user_info["id"],
             "birth_date": birth_date,
             "sex": user_info.get("sex", 0),
             "first_name": user_info.get("first_name"),
