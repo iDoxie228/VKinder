@@ -15,13 +15,13 @@ def handle_help(
     messages_service.send_text_with_keyboard(
         user_id=vk_user_id,
         message=(
-            f"""VKinder помогает найти людей для знакомств во ВКонтакте.\n\n"
-            Как этим пользоваться?:\n
-            Нажмите "{START_SEARCH}", чтобы найти человка;\n
-            {ADD_TO_FAVORITES}, чтобы сохранить понравившегося человека;\n
-            {NEXT_CANDIDATE}, чтобы показать следующего человека;\n
-            {ADD_TO_BLACKLIST}, чтобы больше не показывать этого человека;\n
-            {LIST_FAVORITES}, чтобы посмотреть свои избранные"""
+            f"""VKinder помогает найти людей для знакомств во ВКонтакте.\n\n
+Как этим пользоваться:\n
+Нажмите "{START_SEARCH}", чтобы найти человка;\n
+"{NEXT_CANDIDATE}", чтобы показать следующего;\n
+"{ADD_TO_FAVORITES}", чтобы сохранить понравившегося человека;\n
+"{ADD_TO_BLACKLIST}", чтобы больше не показывать этого человека;\n
+"{LIST_FAVORITES}", чтобы посмотреть свои избранные"""
         ),
         keyboard=get_main_keyboard(),
     )

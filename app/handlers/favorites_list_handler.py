@@ -1,11 +1,13 @@
+from app.keyboards.candidate_keyboard import get_candidate_keyboard
 from app.keyboards.main_keyboard import get_main_keyboard
 from app.use_cases.list_favorites import get_list_favorites
 from infrastructure.db.repositories.favorites_repository import FavoriteRepository
 from infrastructure.db.repositories.user_repository import UserRepository
+from infrastructure.vk.messages_service import MessagesService
 
 def handle_list_favorites(
     vk_user_id: int,
-    messages_service,
+    messages_service: MessagesService,
     user_repository: UserRepository,
     favorites_repository: FavoriteRepository,
 ) -> None:
@@ -37,7 +39,7 @@ def handle_list_favorites(
         messages_service.send_text_with_keyboard(
             user_id=vk_user_id,
             message=result.message,
-            keyboard=get_main_keyboard(),
+            keyboard=get_candidate_keyboard(),
         )
         return
 
@@ -52,5 +54,5 @@ def handle_list_favorites(
     messages_service.send_text_with_keyboard(
         user_id=vk_user_id,
         message=text,
-        keyboard=get_main_keyboard(),
+        keyboard=get_candidate_keyboard(),
     )
