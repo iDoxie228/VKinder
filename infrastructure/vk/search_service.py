@@ -19,7 +19,8 @@ class VkSearchService:
             age_from=age_from,
             age_to=age_to,
             has_photo=1,
-            fields="id,city,sex,bdate,is_closed"
+            fields="id,city,sex,bdate,is_closed",
+            count=1000
         )
         
         items = response.get("items", [])

@@ -44,3 +44,25 @@ class MessagesService:
                 user_id=user_id,
                 attachment=attachment,
             )
+
+    def send_text_attachments_keyboard(
+            self,
+            user_id: int,
+            message: str,
+            attachments: list[str],
+            keyboard: str | None = None
+    ) -> None:
+        params = {
+            "message": message
+        }
+
+        if attachments:
+            params["attachment"] = ",".join(attachments)
+        
+        if keyboard is not None:
+            params["keyboard"] = keyboard
+
+        self._send(
+            user_id=user_id,
+            **params
+        )

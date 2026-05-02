@@ -73,10 +73,10 @@ def run_bot() -> None:
         vk_user_id = event.object.message["from_id"]
         text = event.object.message["text"].strip()
         request = text.lower()
-
+        print("Новое сообщение:", text)
         session = get_session(vk_user_id)
 
-        if request in ("начать", "/start", START_SEARCH.lower()):
+        if request in ("start","начать", "/start", START_SEARCH.lower()):
             handle_start(
                 vk_user_id=vk_user_id,
                 messages_service=messages_service,
@@ -180,7 +180,7 @@ def run_bot() -> None:
 
         messages_service.send_text(
             user_id=vk_user_id,
-            message=f"Не понял, что Вы написали. Нажмите {START_SEARCH} или {HELP}",
+            message=f'Не понял, что Вы написали. Нажмите "{START_SEARCH}" или "{HELP}"',
         )
 
 
