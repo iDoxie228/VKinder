@@ -11,31 +11,42 @@
 ## ⬇️ Установка и запуск
 
 1. Клонирование репозитория 
-- git clone https://github.com/iDoxie228/VKinder.git
-- cd VKinder
-2. Установка зависимостей. 
-- pip install -r requirements.txt
+```bash
+git clone https://github.com/iDoxie228/VKinder.git
+cd VKinder
+```
+2. Установка зависимостей
+```bash
+pip install -r requirements.txt
+```
 3. Настройка токенов
    1. В папке с проектом найдите файл **`.env.example`**
    2. Переименуйте его в **`.env`** 
    3. Откройте файл **`.env`** в любом текстовом редакторе
    4. Заполните поля своими данными:
 
-    ```env
+    ```bash
     VK_GROUP_ID=вставьте_сюда_айди_группы
     VK_GROUP_TOKEN=вставьте_сюда_токен_группы
     VK_USER_TOKEN=вставьте_сюда_ваш_токен
-    
+    ```
 4. Создание базы данных
 - Подключитесь к PostgreSQL и создайте базу данных:
-- psql -U postgres -c "CREATE DATABASE vkinder;"
+```bash
+psql -U postgres -c "CREATE DATABASE vkinder;"
+```
 5. Создание таблиц
-- python -m infrastructure.db.init_db
-6. Запуск бота 
-- python main.py
+```bash
+python -m infrastructure.db.init_db
+```
+6. Запуск бота
+```bash
+python main.py
+```
 
 ## 🔑 Получение токенов
-- Для инструкции по получению пользовательского токена перейдите по ссылке:  https://github.com/netology-code/adpy-team-diplom/blob/main/token_settings.md
+- Для инструкции по получению пользовательского токена перейдите по ссылке:
+https://github.com/netology-code/adpy-team-diplom/blob/main/token_settings.md
 - Для инструкции по получению токена для группы перейдите по ссылке: 
 https://github.com/netology-code/adpy-team-diplom/blob/main/group_settings.md
 - ID группы — цифры после club в URL вашей группы
